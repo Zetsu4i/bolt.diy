@@ -17,12 +17,17 @@ import HyperbolicProvider from './providers/hyperbolic';
 import AmazonBedrockProvider from './providers/amazon-bedrock';
 import GithubProvider from './providers/github';
 import MoonshotProvider from './providers/moonshot';
+import AzureOpenAIProvider from './providers/azure-openai';
+import VertexAIProvider from './providers/vertex-ai';
+import GraniteProvider from './providers/granite';
 
 export {
   AnthropicProvider,
+  AzureOpenAIProvider,
   CohereProvider,
   DeepseekProvider,
   GoogleProvider,
+  GraniteProvider,
   GroqProvider,
   HuggingFaceProvider,
   HyperbolicProvider,
@@ -33,6 +38,7 @@ export {
   OpenRouterProvider,
   OpenAILikeProvider,
   PerplexityProvider,
+  VertexAIProvider,
   XAIProvider,
   TogetherProvider,
   LMStudioProvider,
