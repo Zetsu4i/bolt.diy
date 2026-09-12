@@ -12,6 +12,8 @@ import { IconButton } from '~/components/ui/IconButton';
 import { toast } from 'react-toastify';
 import { SpeechRecognitionButton } from '~/components/chat/SpeechRecognition';
 import { SupabaseConnection } from './SupabaseConnection';
+import { SkillsMcpPicker } from './SkillsMcpPicker';
+import { SandboxIndicator } from './SandboxIndicator';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import styles from './BaseChat.module.scss';
 import type { ProviderInfo } from '~/types/model';
@@ -263,7 +265,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <div className="flex justify-between items-center text-sm p-4 pt-2">
           <div className="flex gap-1 items-center">
             <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
+            <SkillsMcpPicker />
             <McpTools />
+            <SandboxIndicator />
             <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>
               <div className="i-ph:paperclip text-xl"></div>
             </IconButton>

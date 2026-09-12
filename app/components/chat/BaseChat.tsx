@@ -33,6 +33,7 @@ import { ChatBox } from './ChatBox';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import LlmErrorAlert from './LLMApiAlert';
+import { SkillsMcpPicker } from './SkillsMcpPicker';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -476,6 +477,19 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 <div className="flex justify-center gap-2">
                   {ImportButtons(importChat)}
                   <GitCloneButton importChat={importChat} />
+                  <SkillsMcpPicker
+                    source="landing"
+                    trigger={({ onClick }) => (
+                      <button
+                        onClick={onClick}
+                        className="flex items-center gap-1.5 rounded-lg bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor px-3 py-1.5 text-sm text-bolt-elements-textPrimary transition hover:bg-bolt-elements-background-depth-3 hover:border-bolt-elements-borderColorActive"
+                        title="Choose skills and MCP servers for your new project"
+                      >
+                        <div className="i-ph:puzzle-piece text-lg" />
+                        <span className="hidden sm:inline">Skills &amp; MCPs</span>
+                      </button>
+                    )}
+                  />
                 </div>
               )}
               <div className="flex flex-col gap-5">

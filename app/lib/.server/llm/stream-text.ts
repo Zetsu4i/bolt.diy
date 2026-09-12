@@ -10,6 +10,8 @@ import { createScopedLogger } from '~/utils/logger';
 import { createFilesContext, extractPropertiesFromMessage } from './utils';
 import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
 import type { DesignScheme } from '~/types/design-scheme';
+import type { SelectedSkill, SandboxInfo } from '~/types/skills';
+import { SANDBOX_SKILLS_PATH } from '~/lib/.server/sandbox/e2b-client';
 
 export type Messages = Message[];
 
@@ -65,6 +67,10 @@ export async function streamText(props: {
   messageSliceId?: number;
   chatMode?: 'discuss' | 'build';
   designScheme?: DesignScheme;
+  /** Skills selected by the user for this project. Their instructions are appended to the system prompt. */
+  projectSkills?: SelectedSkill[];
+  /** Sandbox runtime info (E2B) so the agent can use installed skills inside the sandbox. */
+  sandboxInfo?: Pick<SandboxInfo, 'sandboxId' | 'previewHosts' | 'installedSkills'> | null;
 }) {
   const {
     messages,
@@ -193,6 +199,36 @@ export async function streamText(props: {
         }
       }
     }
+  }
+
+  // Append user-selected project skills to the system prompt WITHOUT replacing
+  // any existing prompt content. This mirrors the locked-files append pattern.
+  const skills = props.projectSkills?.filter((skill) => skill?.instructions);
+
+  if (skills && skills.length > 0) {
+    const skillSections = skills
+      .map((skill) => {
+        const sandboxPath = `${SANDBOX_SKILLS_PATH}/${skill.id}`;
+
+        return `<skill name="${skill.name}" id="${skill.id}" sandbox_path="${sandboxPath}">
+${skill.instructions}
+</skill>`;
+      })
+      .join('\n\n');
+
+    const sandboxNote = props.sandboxInfo?.sandboxId
+      ? `\nA live sandbox (id: ${props.sandboxInfo.sandboxId}) is available for this project. The skills above are INSTALLED in it under ${SANDBOX_SKILLS_PATH}/<skill-id>/ (including bundled scripts). When a task matches a skill, follow its SKILL.md and run its scripts inside the sandbox.`
+      : `\nNote: these skills are selected for the project. Their files are installed into the project sandbox when it is created.`;
+
+    systemPrompt = `${systemPrompt}
+
+<project_skills>
+The user has installed the following skills for this project. Use them when relevant to the user's request.
+${sandboxNote}
+
+${skillSections}
+</project_skills>
+    `;
   }
 
   const effectiveLockedFilePaths = new Set<string>();

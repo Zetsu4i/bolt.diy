@@ -27,6 +27,8 @@ import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
+import { useProjectStore, PENDING_CHAT_ID } from '~/lib/stores/project';
+import { useChatId, useOnChatStarted } from './useChatId';
 import type { LlmErrorAlertType } from '~/types/actions';
 
 const logger = createScopedLogger('Chat');
@@ -83,6 +85,48 @@ interface ChatProps {
 
 export const ChatImpl = memo(
   ({ description, initialMessages, storeMessageHistory, importChat, exportChat }: ChatProps) => {
+    const chatId = useChatId();
+    const configs = useProjectStore((s) => s.configs);
+    const sandboxState = useProjectStore((s) => s.sandbox);
+    const adoptPendingConfig = useProjectStore((s) => s.adoptPendingConfig);
+    const setActiveChat = useProjectStore((s) => s.setActiveChat);
+    const provision = useProjectStore((s) => s.provision);
+    const keepAlive = useProjectStore((s) => s.keepAlive);
+    const sandboxPhase = useProjectStore((s) => s.sandboxPhase);
+    const activeChatId = useProjectStore((s) => s.activeChatId);
+
+    // Keep the project store scoped to the active chat and migrate any
+    // landing-page (pending) skill/MCP selections onto the new project.
+    useEffect(() => {
+      setActiveChat(chatId || null);
+
+      if (chatId) {
+        adoptPendingConfig(chatId);
+      }
+    }, [chatId, adoptPendingConfig, setActiveChat]);
+
+    // Auto-provision the sandbox (with the user's selected skills/MCPs)
+    // the first time the project actually starts.
+    useOnChatStarted((newChatId) => {
+      const config = useProjectStore.getState().configs[newChatId || PENDING_CHAT_ID] || useProjectStore.getState().configs[PENDING_CHAT_ID];
+      const hasExtras =
+        (config?.skills?.length || 0) > 0 || Object.keys(config?.mcps?.mcpServers || {}).length > 0;
+
+      if (hasExtras && useProjectStore.getState().sandboxPhase !== 'ready') {
+        provision().catch(() => undefined);
+      }
+    });
+
+    // Keep the sandbox alive while the user is active in the project.
+    useEffect(() => {
+      if (sandboxPhase !== 'ready' || !activeChatId) {
+        return;
+      }
+
+      const interval = setInterval(() => keepAlive(), 8 * 60 * 1000);
+
+      return () => clearInterval(interval);
+    }, [sandboxPhase, activeChatId, keepAlive]);
     useShortcuts();
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -140,6 +184,14 @@ export const ChatImpl = memo(
         contextOptimization: contextOptimizationEnabled,
         chatMode,
         designScheme,
+        projectSkills: (configs[chatId || PENDING_CHAT_ID]?.skills) || [],
+        sandbox: sandboxState
+          ? {
+              sandboxId: sandboxState.sandboxId,
+              previewHosts: sandboxState.previewHosts,
+              installedSkills: sandboxState.installedSkills,
+            }
+          : null,
         supabase: {
           isConnected: supabaseConn.isConnected,
           hasSelectedProject: !!selectedProject,

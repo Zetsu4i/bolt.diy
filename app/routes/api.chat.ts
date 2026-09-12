@@ -14,6 +14,7 @@ import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 import type { DesignScheme } from '~/types/design-scheme';
 import { MCPService } from '~/lib/services/mcpService';
 import { StreamRecoveryManager } from '~/lib/.server/llm/stream-recovery';
+import type { SandboxInfo, SelectedSkill } from '~/types/skills';
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -48,7 +49,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     },
   });
 
-  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme, maxLLMSteps } =
+  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme, maxLLMSteps, projectSkills, sandbox } =
     await request.json<{
       messages: Messages;
       files: any;
@@ -65,6 +66,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         };
       };
       maxLLMSteps: number;
+      /** User-selected skills for this project; instructions get appended to the system prompt. */
+      projectSkills?: SelectedSkill[];
+      /** Current sandbox runtime info (if a sandbox is running for this project). */
+      sandbox?: Pick<SandboxInfo, 'sandboxId' | 'previewHosts' | 'installedSkills'> | null;
     }>();
 
   const cookieHeader = request.headers.get('Cookie');
@@ -321,6 +326,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           designScheme,
           summary,
           messageSliceId,
+          projectSkills,
+          sandboxInfo: sandbox,
         });
 
         (async () => {

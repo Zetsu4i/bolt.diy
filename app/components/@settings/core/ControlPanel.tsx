@@ -29,6 +29,7 @@ import NetlifyTab from '~/components/@settings/tabs/netlify/NetlifyTab';
 import CloudProvidersTab from '~/components/@settings/tabs/providers/cloud/CloudProvidersTab';
 import LocalProvidersTab from '~/components/@settings/tabs/providers/local/LocalProvidersTab';
 import McpTab from '~/components/@settings/tabs/mcp/McpTab';
+import SkillsTab from '~/components/@settings/tabs/skills/SkillsTab';
 
 interface ControlPanelProps {
   open: boolean;
@@ -151,6 +152,8 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
         return <EventLogsTab />;
       case 'mcp':
         return <McpTab />;
+      case 'skills':
+        return <SkillsTab />;
 
       default:
         return null;
