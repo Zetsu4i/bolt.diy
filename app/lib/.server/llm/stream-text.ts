@@ -12,6 +12,7 @@ import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { SelectedSkill, SandboxInfo } from '~/types/skills';
 import { SANDBOX_SKILLS_PATH } from '~/lib/.server/sandbox/e2b-client';
+import { AGENT_WORKFLOW_ADDENDUM, SMALL_MODEL_ADDENDUM } from '~/lib/common/prompts/agent';
 
 export type Messages = Message[];
 
@@ -71,6 +72,16 @@ export async function streamText(props: {
   projectSkills?: SelectedSkill[];
   /** Sandbox runtime info (E2B) so the agent can use installed skills inside the sandbox. */
   sandboxInfo?: Pick<SandboxInfo, 'sandboxId' | 'previewHosts' | 'installedSkills'> | null;
+  /** Reference documents uploaded by the user, injected as a knowledge section. */
+  knowledgeDocs?: { name: string; content: string }[];
+  /** Agent mode: the implementation plan produced by the planning pass. */
+  implementationPlan?: string;
+  /** Agent mode: append the agent workflow (understand → plan → implement → verify) rules. */
+  agentWorkflow?: boolean;
+  /** Append the strict small-model formatting rules for cheaper models. */
+  smallModelMode?: boolean;
+  /** Fully replaces the base system prompt (used by agent planner/reviewer passes). */
+  systemPromptOverride?: string;
 }) {
   const {
     messages,
@@ -155,18 +166,19 @@ export async function streamText(props: {
     `Token limits for model ${modelDetails.name}: maxTokens=${safeMaxTokens}, maxTokenAllowed=${modelDetails.maxTokenAllowed}, maxCompletionTokens=${modelDetails.maxCompletionTokens}`,
   );
 
-  let systemPrompt =
-    PromptLibrary.getPropmtFromLibrary(promptId || 'default', {
-      cwd: WORK_DIR,
-      allowedHtmlElements: allowedHTMLElements,
-      modificationTagName: MODIFICATIONS_TAG_NAME,
-      designScheme,
-      supabase: {
-        isConnected: options?.supabaseConnection?.isConnected || false,
-        hasSelectedProject: options?.supabaseConnection?.hasSelectedProject || false,
-        credentials: options?.supabaseConnection?.credentials || undefined,
-      },
-    }) ?? getSystemPrompt();
+  let systemPrompt = props.systemPromptOverride
+    ? props.systemPromptOverride
+    : PromptLibrary.getPropmtFromLibrary(promptId || 'default', {
+        cwd: WORK_DIR,
+        allowedHtmlElements: allowedHTMLElements,
+        modificationTagName: MODIFICATIONS_TAG_NAME,
+        designScheme,
+        supabase: {
+          isConnected: options?.supabaseConnection?.isConnected || false,
+          hasSelectedProject: options?.supabaseConnection?.hasSelectedProject || false,
+          credentials: options?.supabaseConnection?.credentials || undefined,
+        },
+      }) ?? getSystemPrompt();
 
   if (chatMode === 'build' && contextFiles && contextOptimization) {
     const codeContext = createFilesContext(contextFiles, true);
@@ -229,6 +241,65 @@ ${sandboxNote}
 ${skillSections}
 </project_skills>
     `;
+  }
+
+  // Append user-provided knowledge documents (reference materials, style
+  // guides) WITHOUT replacing any existing prompt content.
+  const docs = (props.knowledgeDocs || []).filter((doc) => doc?.content);
+
+  if (docs.length > 0) {
+    const MAX_DOC_CHARS = 20000;
+    const MAX_TOTAL_CHARS = 60000;
+    let totalUsed = 0;
+    const docSections: string[] = [];
+
+    for (const doc of docs) {
+      if (totalUsed >= MAX_TOTAL_CHARS) {
+        break;
+      }
+
+      const remaining = MAX_TOTAL_CHARS - totalUsed;
+      let content = doc.content.slice(0, Math.min(MAX_DOC_CHARS, remaining));
+
+      if (content.length < doc.content.length) {
+        content += '\n[...document truncated...]';
+      }
+
+      totalUsed += content.length;
+      docSections.push(`<document name="${doc.name}">\n${content}\n</document>`);
+    }
+
+    systemPrompt = `${systemPrompt}
+
+<knowledge_docs>
+The user attached the following reference documents for this project. Treat them as authoritative reference material (e.g. coding style guides, API references, specifications). Follow any style conventions they define.
+
+${docSections.join('\n\n')}
+</knowledge_docs>
+    `;
+  }
+
+  // Agent mode: inject the implementation plan produced by the planning pass
+  // plus the agent workflow rules (appended, never replacing existing prompt
+  // content).
+  if (props.implementationPlan) {
+    const safePlan = props.implementationPlan.slice(0, 12000);
+    systemPrompt = `${systemPrompt}
+
+<implementation_plan>
+The following implementation plan was created for the current request. Follow it closely; deviate only where strictly necessary and explain deviations in your summary.
+
+${safePlan}
+</implementation_plan>
+    `;
+  }
+
+  if (props.agentWorkflow) {
+    systemPrompt = `${systemPrompt}${AGENT_WORKFLOW_ADDENDUM}`;
+  }
+
+  if (props.smallModelMode) {
+    systemPrompt = `${systemPrompt}${SMALL_MODEL_ADDENDUM}`;
   }
 
   const effectiveLockedFilePaths = new Set<string>();

@@ -18,7 +18,8 @@ export type TabType =
   | 'supabase'
   | 'event-logs'
   | 'mcp'
-  | 'skills';
+  | 'skills'
+  | 'agent';
 
 export type WindowType = 'user' | 'developer';
 
@@ -83,6 +84,7 @@ export const TAB_LABELS: Record<TabType, string> = {
   'event-logs': 'Event Logs',
   mcp: 'MCP Servers',
   skills: 'Skills',
+  agent: 'Agent & AI',
 };
 
 export const categoryLabels: Record<SettingCategory, string> = {

@@ -13,6 +13,7 @@ import { toast } from 'react-toastify';
 import { SpeechRecognitionButton } from '~/components/chat/SpeechRecognition';
 import { SupabaseConnection } from './SupabaseConnection';
 import { SkillsMcpPicker } from './SkillsMcpPicker';
+import { KnowledgeButton } from './KnowledgeButton';
 import { SandboxIndicator } from './SandboxIndicator';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import styles from './BaseChat.module.scss';
@@ -266,6 +267,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
           <div className="flex gap-1 items-center">
             <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
             <SkillsMcpPicker />
+            <KnowledgeButton />
             <McpTools />
             <SandboxIndicator />
             <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>

@@ -17,7 +17,10 @@ import { extractRelativePath } from '~/utils/diff';
 import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
+import { createScopedLogger } from '~/utils/logger';
 import type { ActionAlert, DeployAlert, SupabaseAlert } from '~/types/actions';
+
+const logger = createScopedLogger('WorkbenchStore');
 
 const { saveAs } = fileSaver;
 
@@ -566,6 +569,37 @@ export class WorkbenchStore {
       const fullPath = path.join(wc.workdir, data.action.filePath);
 
       /*
+       * File locking enforcement (conflict prevention): block the assistant
+       * from overwriting files (or files inside folders) that the user has
+       * locked. The lock intent is also communicated via the system prompt;
+       * this is the hard client-side guarantee.
+       */
+      const lockReason = this.#getFileLockState(fullPath);
+
+      if (lockReason) {
+        const message = `Blocked: ${data.action.filePath} is locked${lockReason === 'folder' ? ' (its folder is locked)' : ''}`;
+
+        logger.warn(`Lock enforcement: ${message}`);
+
+        const artifactForLock = this.#getArtifact(artifactId);
+        const existing = artifactForLock?.runner.actions.get()[data.actionId];
+
+        if (artifactForLock && existing) {
+          artifactForLock.runner.actions.setKey(data.actionId, { ...existing, status: 'failed', error: message });
+        }
+
+        this.actionAlert.set({
+          type: 'error',
+          title: 'Locked File Protected',
+          description: message,
+          content: `The assistant tried to modify the locked file "${data.action.filePath}" and was blocked. Unlock the file in the file tree (right-click → Unlock) if you want it to be changed.`,
+          source: 'lock',
+        });
+
+        return;
+      }
+
+      /*
        * For scoped locks, we would need to implement diff checking here
        * to determine if the AI is modifying existing code or just adding new code
        * This is a more complex feature that would be implemented in a future update
@@ -607,6 +641,38 @@ export class WorkbenchStore {
   #getArtifact(id: string) {
     const artifacts = this.artifacts.get();
     return artifacts[id];
+  }
+
+  /**
+   * Returns why the given absolute path cannot be written by the assistant,
+   * or undefined when it is writable.
+   * Checks the exact file lock plus locks on all parent folders.
+   */
+  #getFileLockState(fullPath: string): 'file' | 'folder' | undefined {
+    const files = this.#filesStore.files.get();
+
+    if (files[fullPath]?.isLocked) {
+      return 'file';
+    }
+
+    let current = fullPath;
+
+    // Walk up the directory tree looking for locked folders.
+    for (;;) {
+      const parent = path.dirname(current);
+
+      if (parent === current || parent === '.' || parent === '/') {
+        break;
+      }
+
+      if (files[parent]?.isLocked) {
+        return 'folder';
+      }
+
+      current = parent;
+    }
+
+    return undefined;
   }
 
   async downloadZip() {

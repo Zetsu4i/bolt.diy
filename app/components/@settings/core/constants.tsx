@@ -1,5 +1,5 @@
 import type { TabType } from './types';
-import { User, Settings, Bell, Star, Database, Cloud, Laptop, Github, Wrench, List, Puzzle } from 'lucide-react';
+import { User, Settings, Bell, Star, Database, Cloud, Laptop, Github, Wrench, List, Puzzle, Bot } from 'lucide-react';
 
 // GitLab icon component
 const GitLabIcon = () => (
@@ -54,6 +54,7 @@ export const TAB_ICONS: Record<TabType, React.ComponentType<{ className?: string
   'event-logs': List,
   mcp: Wrench,
   skills: Puzzle,
+  agent: Bot,
 };
 
 export const TAB_LABELS: Record<TabType, string> = {
@@ -72,6 +73,7 @@ export const TAB_LABELS: Record<TabType, string> = {
   'event-logs': 'Event Logs',
   mcp: 'MCP Servers',
   skills: 'Skills',
+  agent: 'Agent & AI',
 };
 
 export const TAB_DESCRIPTIONS: Record<TabType, string> = {
@@ -90,6 +92,7 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   'event-logs': 'View system events and logs',
   mcp: 'Configure MCP (Model Context Protocol) servers',
   skills: 'Browse and install agent skills for your projects',
+  agent: 'Configure the agent pipeline, planning, self-correction and debug mode',
 };
 
 export const DEFAULT_TAB_CONFIG = [
@@ -107,6 +110,7 @@ export const DEFAULT_TAB_CONFIG = [
   { id: 'event-logs', visible: true, window: 'user' as const, order: 10 },
   { id: 'mcp', visible: true, window: 'user' as const, order: 11 },
   { id: 'skills', visible: true, window: 'user' as const, order: 12 },
+  { id: 'agent', visible: true, window: 'user' as const, order: 13 },
 
   // User Window Tabs (In dropdown, initially hidden)
 ];

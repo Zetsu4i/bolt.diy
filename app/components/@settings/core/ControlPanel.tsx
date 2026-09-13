@@ -30,6 +30,7 @@ import CloudProvidersTab from '~/components/@settings/tabs/providers/cloud/Cloud
 import LocalProvidersTab from '~/components/@settings/tabs/providers/local/LocalProvidersTab';
 import McpTab from '~/components/@settings/tabs/mcp/McpTab';
 import SkillsTab from '~/components/@settings/tabs/skills/SkillsTab';
+import { AgentTab } from '~/components/@settings/tabs/agent/AgentTab';
 
 interface ControlPanelProps {
   open: boolean;
@@ -154,6 +155,8 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
         return <McpTab />;
       case 'skills':
         return <SkillsTab />;
+      case 'agent':
+        return <AgentTab />;
 
       default:
         return null;

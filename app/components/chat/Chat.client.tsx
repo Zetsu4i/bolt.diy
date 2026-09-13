@@ -29,6 +29,8 @@ import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
 import { useProjectStore, PENDING_CHAT_ID } from '~/lib/stores/project';
 import { useChatId, useOnChatStarted } from './useChatId';
+import { useAgentSettings } from '~/lib/stores/agent-settings';
+import { getKnowledgeDocs, toServerPayload } from '~/lib/stores/knowledge';
 import type { LlmErrorAlertType } from '~/types/actions';
 
 const logger = createScopedLogger('Chat');
@@ -160,6 +162,15 @@ export const ChatImpl = memo(
     const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');
     const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
     const mcpSettings = useMCPStore((state) => state.settings);
+    const agentSettings = useAgentSettings();
+    const agentSettingsRef = useRef(agentSettings);
+    agentSettingsRef.current = agentSettings;
+    const autoFixAttemptsRef = useRef<Record<string, number>>({});
+
+    // Reset auto-fix attempt counters when the chat changes.
+    useEffect(() => {
+      autoFixAttemptsRef.current = {};
+    }, [chatId]);
 
     const {
       messages,
@@ -201,6 +212,8 @@ export const ChatImpl = memo(
           },
         },
         maxLLMSteps: mcpSettings.maxLLMSteps,
+        agentSettings,
+        knowledgeDocs: toServerPayload(getKnowledgeDocs(chatId)),
       },
       sendExtraMessageFields: true,
       onError: (e) => {
@@ -607,6 +620,47 @@ export const ChatImpl = memo(
 
       textareaRef.current?.blur();
     };
+
+    /*
+     * Self-correction: when auto-fix is enabled and the preview or terminal
+     * reports an error, automatically send it back to the agent (same flow as
+     * the manual "Ask Bolt" button in ChatAlert), with a bounded number of
+     * attempts per unique error.
+     */
+    useEffect(() => {
+      const settings = agentSettingsRef.current;
+
+      if (!settings.autoFixErrors || !actionAlert || actionAlert.type !== 'error') {
+        return;
+      }
+
+      // Lock conflicts are informational — no automatic fix applies.
+      if (actionAlert.source === 'lock') {
+        return;
+      }
+
+      if (isLoading || fakeLoading) {
+        return;
+      }
+
+      const signature = `${actionAlert.title}::${actionAlert.description}::${(actionAlert.content || '').slice(0, 200)}`;
+      const attempts = autoFixAttemptsRef.current[signature] || 0;
+
+      if (attempts >= Math.max(settings.maxFixAttempts, 1)) {
+        return;
+      }
+
+      autoFixAttemptsRef.current[signature] = attempts + 1;
+      const isPreview = actionAlert.source === 'preview';
+
+      const timer = setTimeout(() => {
+        toast.info(`Auto-fix: sending this ${isPreview ? 'preview' : 'terminal'} error back to the agent...`);
+        sendMessage(undefined as any, `*Fix this ${isPreview ? 'preview' : 'terminal'} error* \n\`\`\`${isPreview ? 'js' : 'sh'}\n${actionAlert.content}\n\`\`\`\n`);
+      }, 1200);
+
+      return () => clearTimeout(timer);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [actionAlert, isLoading, fakeLoading]);
 
     /**
      * Handles the change event for the textarea and updates the input state.

@@ -15,6 +15,7 @@ import type { DesignScheme } from '~/types/design-scheme';
 import { MCPService } from '~/lib/services/mcpService';
 import { StreamRecoveryManager } from '~/lib/.server/llm/stream-recovery';
 import type { SandboxInfo, SelectedSkill } from '~/types/skills';
+import { runAgentPipeline, type AgentSettings } from '~/lib/.server/llm/agent';
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -49,7 +50,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     },
   });
 
-  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme, maxLLMSteps, projectSkills, sandbox } =
+  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme, maxLLMSteps, projectSkills, sandbox, agentSettings, knowledgeDocs } =
     await request.json<{
       messages: Messages;
       files: any;
@@ -70,6 +71,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
       projectSkills?: SelectedSkill[];
       /** Current sandbox runtime info (if a sandbox is running for this project). */
       sandbox?: Pick<SandboxInfo, 'sandboxId' | 'previewHosts' | 'installedSkills'> | null;
+      /** Agent pipeline settings (planner → implementer → verifier). */
+      agentSettings?: AgentSettings;
+      /** Reference documents uploaded by the user for this project. */
+      knowledgeDocs?: { name: string; content: string }[];
     }>();
 
   const cookieHeader = request.headers.get('Cookie');
@@ -312,6 +317,38 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           message: 'Generating Response',
         } satisfies ProgressAnnotation);
 
+        /*
+         * Agent pipeline (planner → implementer → verifier). Only used when
+         * explicitly enabled for this request in build mode; the legacy
+         * single-call path below remains the default otherwise.
+         */
+        if (agentSettings?.agentMode && chatMode === 'build') {
+          await runAgentPipeline({
+            messages: [...processedMessages],
+            env: context.cloudflare?.env,
+            options,
+            apiKeys,
+            files,
+            providerSettings,
+            promptId,
+            contextOptimization,
+            contextFiles: filteredFiles,
+            summary,
+            messageSliceId,
+            chatMode,
+            designScheme,
+            projectSkills,
+            sandboxInfo: sandbox,
+            knowledgeDocs,
+            agentSettings,
+            dataStream,
+            signal: request.signal,
+            progressCounter: { get value() { return progressCounter; }, set value(v: number) { progressCounter = v; } },
+          });
+
+          return;
+        }
+
         const result = await streamText({
           messages: [...processedMessages],
           env: context.cloudflare?.env,
@@ -328,6 +365,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           messageSliceId,
           projectSkills,
           sandboxInfo: sandbox,
+          knowledgeDocs,
         });
 
         (async () => {

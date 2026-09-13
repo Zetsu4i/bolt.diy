@@ -39,7 +39,7 @@ export interface ActionAlert {
   title: string;
   description: string;
   content: string;
-  source?: 'terminal' | 'preview'; // Add source to differentiate between terminal and preview errors
+  source?: 'terminal' | 'preview' | 'lock'; // Differentiates between terminal/preview errors and lock conflicts
 }
 
 export interface SupabaseAlert {

@@ -72,6 +72,11 @@ export default defineConfig((config) => {
         },
       },
     },
+    server: {
+      // Allow the platform preview gateway hosts (e.g. preview-*.space-z.ai)
+      // in addition to localhost during development.
+      allowedHosts: ['.space-z.ai'],
+    },
     test: {
       exclude: [
         '**/node_modules/**',

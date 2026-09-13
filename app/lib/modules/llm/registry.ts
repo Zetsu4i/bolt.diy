@@ -20,6 +20,9 @@ import AmazonBedrockProvider from './providers/amazon-bedrock';
 import GithubProvider from './providers/github';
 import MoonshotProvider from './providers/moonshot';
 import ZaiProvider from './providers/z-ai';
+import AzureOpenAIProvider from './providers/azure';
+import GoogleVertexProvider from './providers/google-vertex';
+import GraniteProvider from './providers/granite';
 
 export {
   AnthropicProvider,
@@ -44,4 +47,7 @@ export {
   AmazonBedrockProvider,
   GithubProvider,
   ZaiProvider,
+  AzureOpenAIProvider,
+  GoogleVertexProvider,
+  GraniteProvider,
 };

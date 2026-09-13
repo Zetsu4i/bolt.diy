@@ -12,10 +12,13 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
   const { description, content, source } = alert;
 
   const isPreview = source === 'preview';
-  const title = isPreview ? 'Preview Error' : 'Terminal Error';
-  const message = isPreview
-    ? 'We encountered an error while running the preview. Would you like Bolt to analyze and help resolve this issue?'
-    : 'We encountered an error while running terminal commands. Would you like Bolt to analyze and help resolve this issue?';
+  const isLock = source === 'lock';
+  const title = isLock ? 'Locked File Protected' : isPreview ? 'Preview Error' : 'Terminal Error';
+  const message = isLock
+    ? 'The assistant tried to modify a file you locked. The change was blocked to protect your work.'
+    : isPreview
+      ? 'We encountered an error while running the preview. Would you like Bolt to analyze and help resolve this issue?'
+      : 'We encountered an error while running terminal commands. Would you like Bolt to analyze and help resolve this issue?';
 
   return (
     <AnimatePresence>
@@ -68,24 +71,26 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
               transition={{ delay: 0.3 }}
             >
               <div className={classNames(' flex gap-2')}>
-                <button
-                  onClick={() =>
-                    postMessage(
-                      `*Fix this ${isPreview ? 'preview' : 'terminal'} error* \n\`\`\`${isPreview ? 'js' : 'sh'}\n${content}\n\`\`\`\n`,
-                    )
-                  }
-                  className={classNames(
-                    `px-2 py-1.5 rounded-md text-sm font-medium`,
-                    'bg-bolt-elements-button-primary-background',
-                    'hover:bg-bolt-elements-button-primary-backgroundHover',
-                    'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bolt-elements-button-danger-background',
-                    'text-bolt-elements-button-primary-text',
-                    'flex items-center gap-1.5',
-                  )}
-                >
-                  <div className="i-ph:chat-circle-duotone"></div>
-                  Ask Bolt
-                </button>
+                {!isLock && (
+                  <button
+                    onClick={() =>
+                      postMessage(
+                        `*Fix this ${isPreview ? 'preview' : 'terminal'} error* \n\`\`\`${isPreview ? 'js' : 'sh'}\n${content}\n\`\`\`\n`,
+                      )
+                    }
+                    className={classNames(
+                      `px-2 py-1.5 rounded-md text-sm font-medium`,
+                      'bg-bolt-elements-button-primary-background',
+                      'hover:bg-bolt-elements-button-primary-backgroundHover',
+                      'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bolt-elements-button-danger-background',
+                      'text-bolt-elements-button-primary-text',
+                      'flex items-center gap-1.5',
+                    )}
+                  >
+                    <div className="i-ph:chat-circle-duotone"></div>
+                    Ask Bolt
+                  </button>
+                )}
                 <button
                   onClick={clearAlert}
                   className={classNames(
